@@ -1,0 +1,19 @@
+{{ ansible_managed | comment }}
+global:
+  slack_api_url: "{{ slack_alert_webhook_url }}"
+{% raw -%}
+route:
+  receiver: 'slack-notifications'
+  group_by: ['instance']
+
+receivers:
+  - name: 'slack-notifications'
+    slack_configs:
+      - username: 'Alert Manager'
+        channel: '#monitoring'
+        send_resolved: true
+        text: '{{ template "slack.alert_templates.text" . }}'
+
+templates:
+  - '/etc/alertmanager/alert_templates.tmpl'
+{% endraw %}

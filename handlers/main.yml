@@ -1,0 +1,11 @@
+---
+- name: Reload systemd
+  systemd:
+    daemon_reload: yes
+  listen: systemd_reload
+
+- name: Restart the Blackbox Exporter service
+  service:
+    name: alert_manager
+    state: restarted
+  listen: restart_alert_manager

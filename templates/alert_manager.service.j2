@@ -1,0 +1,15 @@
+{{ ansible_managed | comment }}
+[Unit]
+Description=Prometheus Alertmanager
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+User={{ alert_manager_user }}
+Group={{ alert_manager_user }}
+Type=simple
+WorkingDirectory={{ alert_manager_config_dir }}
+ExecStart={{ alert_manager_bin }}/alertmanager --config.file={{ alert_manager_config_dir }}/alertmanager.yml --web.external-url {{ alert_manager_url }}
+
+[Install]
+WantedBy=multi-user.target

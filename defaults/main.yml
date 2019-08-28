@@ -1,0 +1,7 @@
+---
+alert_manager_release_version: latest
+alert_manager_user: alert_manager
+alert_manager_group: alert_manager
+alert_manager_bin: /usr/local/bin
+alert_manager_config_dir: /etc/alertmanager
+alert_manager_url: http://localhost:9093

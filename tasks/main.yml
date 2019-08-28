@@ -1,0 +1,102 @@
+---
+
+- name: Check variables are defined
+  assert:
+    that:
+      - "alert_manager_release_version is defined"
+      - "alert_manager_user is defined"
+      - "alert_manager_group is defined"
+      - "alert_manager_bin is defined"
+      - "alert_manager_config_dir is defined"
+      - "alert_manager_url is defined"
+      - "slack_alert_webhook_url is defined"
+
+- name: Get the Alert Manager release version from GitHub
+  uri:
+    url: https://api.github.com/repos/prometheus/alert_manager/releases/{{ alert_manager_release_version }}
+    return_content: true
+    status_code: 200
+    body_format: json
+  register: alert_manager_release
+
+- name: Get Alert Manager version
+  set_fact:
+    alert_manager_version: "{{ alert_manager_release.json.tag_name }}"
+    alert_manager_version_number: "{{ alert_manager_release.json.tag_name[1:] }}"
+
+- name: Create the Alert Manager group
+  group:
+    name: "{{ alert_manager_group }}"
+
+- name: Create the Alert Manager user
+  user:
+    name: "{{ alert_manager_user }}"
+    create_home: false
+    shell: /bin/false
+    group: "{{ alert_manager_group }}"
+
+- name: Install Alert Manager
+  unarchive:
+    src: https://github.com/prometheus/alertmanager/releases/download/{{ alert_manager_version }}/alertmanager-{{ alert_manager_version_number }}.linux-amd64.tar.gz
+    dest: /tmp/
+    remote_src: yes
+
+- name: Copy Alert Manager file to bin
+  copy:
+    src: "/tmp/alertmanager-{{ alert_manager_version_number }}.linux-amd64/{{ item }}"
+    dest: "{{ alert_manager_bin }}/{{ item }}"
+    owner: "{{ alert_manager_user }}"
+    group: "{{ alert_manager_group }}"
+    remote_src: yes
+    mode: 0755
+  with_items:
+    - alertmanager
+    - amtool
+
+- name: Delete Alert Manager tmp folder
+  file:
+    path: "/tmp/alertmanager-{{ alert_manager_version_number }}.linux-amd64"
+    state: absent
+
+- name: Create the Alert Manager application dirs
+  file:
+    path: "{{ alert_manager_config_dir }}"
+    owner: "{{ alert_manager_user }}"
+    group: "{{ alert_manager_group }}"
+    state: directory
+    mode: 0755
+
+- name: Copy the configuration file
+  template:
+    src: alert_manager.yml.j2
+    dest: "{{ alert_manager_config_dir }}/alertmanager.yml"
+    owner: "{{ alert_manager_user }}"
+    group: "{{ alert_manager_group }}"
+    mode: 0644
+
+- name: Copy the notifications file
+  copy:
+    src: alert_templates.tmpl
+    dest: "{{ alert_manager_config_dir }}/alert_templates.tmpl"
+    owner: "{{ alert_manager_user }}"
+    group: "{{ alert_manager_group }}"
+    mode: 0644
+  notify: restart_alert_manager
+
+- name: Copy systemd init file
+  template:
+    src: alert_manager.service.j2
+    dest: /etc/systemd/system/alert_manager.service
+  notify: systemd_reload
+
+- name: Start Alert Manager service
+  service:
+    name: alert_manager
+    state: started
+    enabled: yes
+
+- name: Check if Alert Manager emits metrices
+  uri:
+    url: http://127.0.0.1:9093
+    method: GET
+    status_code: 200
